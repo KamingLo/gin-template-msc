@@ -1,0 +1,26 @@
+# Folder binary & build
+main
+bin/
+out/
+
+# Folder Air (live reload) & log
+tmp/
+*.log
+
+# Docker files
+Dockerfile
+docker-compose.yml
+docker.yml
+.dockerignore
+
+# Git & IDE
+.git
+.gitignore
+.vscode/
+.idea/
+
+# Environment secrets (biar gak bocor ke image)
+.env
+
+# Go dependencies (biar didownload bersih di dalam docker)
+vendor/
