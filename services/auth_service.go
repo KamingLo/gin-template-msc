@@ -1,10 +1,10 @@
 package services
 
 import (
-	"belajar-go/config"
-	"belajar-go/models"
-	"belajar-go/utils"
 	"errors"
+	"template/config"
+	"template/models"
+	"template/utils"
 )
 
 func RegisterUser(user *models.User) error {

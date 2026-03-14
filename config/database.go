@@ -1,9 +1,9 @@
 package config
 
 import (
-	"belajar-go/models"
 	"fmt"
 	"os"
+	"template/models"
 
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"

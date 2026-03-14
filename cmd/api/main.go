@@ -1,9 +1,9 @@
 package main
 
 import (
-	"belajar-go/config"
-	"belajar-go/routes"
 	"os"
+	"template/config"
+	"template/routes"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"

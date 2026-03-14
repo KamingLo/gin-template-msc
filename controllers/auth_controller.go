@@ -1,9 +1,9 @@
 package controllers
 
 import (
-	"belajar-go/models"
-	"belajar-go/services"
 	"net/http"
+	"template/models"
+	"template/services"
 
 	"github.com/gin-gonic/gin"
 )

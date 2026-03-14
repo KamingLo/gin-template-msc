@@ -8,7 +8,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func GenerateToken(userID uint, email string) (string, error) {
+func GenerateToken(userID string, email string) (string, error) {
 	secretKey := []byte(os.Getenv("JWT_SECRET"))
 
 	// Ambil konfigurasi dari env

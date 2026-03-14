@@ -1,8 +1,8 @@
 package services
 
 import (
-	"belajar-go/config"
-	"belajar-go/models"
+	"template/config"
+	"template/models"
 
 	"gorm.io/gorm"
 )
@@ -19,7 +19,7 @@ func CreateBook(book *models.Book) error {
 
 func UpdateBook(id string, input map[string]interface{}) (models.Book, error) {
 	var book models.Book
-	if err := config.DB.First(&book, id).Error; err != nil {
+	if err := config.DB.Where("id = ?", id).First(&book).Error; err != nil {
 		return book, err
 	}
 	err := config.DB.Model(&book).Updates(input).Error

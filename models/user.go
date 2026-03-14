@@ -1,12 +1,27 @@
 package models
 
-import "gorm.io/gorm"
+import (
+	"template/utils"
+	"time"
+
+	"gorm.io/gorm"
+)
 
 type User struct {
-	gorm.Model
+	ID        string         `gorm:"primaryKey;type:varchar(36)" json:"id"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+
 	Username string `json:"username" binding:"required"`
 	Email    string `gorm:"unique" json:"email" binding:"required"`
 	Password string `json:"password" binding:"required"`
+}
+
+func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
+	// Menghasilkan ID seperti: USR-20260314-aB12
+	u.ID = utils.GenerateCustomID("US", 4)
+	return nil
 }
 
 type UserLogin struct {

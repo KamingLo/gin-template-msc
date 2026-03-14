@@ -1,7 +1,7 @@
 package routes
 
 import (
-	"belajar-go/controllers"
+	"template/controllers"
 
 	"github.com/gin-gonic/gin"
 )
