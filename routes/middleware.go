@@ -1,20 +1,44 @@
 package routes
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/time/rate"
 )
 
+type client struct {
+	limiter       *rate.Limiter
+	lastSeen      time.Time
+	isLockedUntil time.Time
+}
+
 var (
 	mu      sync.Mutex
-	clients = make(map[string]*rate.Limiter)
+	clients = make(map[string]*client)
 )
+
+func init() {
+	go func() {
+		for {
+			time.Sleep(2 * time.Minute)
+			mu.Lock()
+			for ip, v := range clients {
+				// Hapus IP yang sudah tidak aktif lebih dari 5 menit
+				if time.Since(v.lastSeen) > 5*time.Minute {
+					delete(clients, ip)
+				}
+			}
+			mu.Unlock()
+		}
+	}()
+}
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -42,24 +66,39 @@ func AuthMiddleware() gin.HandlerFunc {
 
 func RateLimitMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// c.ClientIP() mendukung X-Forwarded-For (Next.js) & Direct IP (Flutter)
 		ip := c.ClientIP()
+		now := time.Now()
 
 		mu.Lock()
 		if _, found := clients[ip]; !found {
-			// Limit: 5 request per detik, Burst: 10
-			clients[ip] = rate.NewLimiter(5, 10)
+			clients[ip] = &client{
+				limiter: rate.NewLimiter(rate.Limit(5), 10), // 5 req/s, burst 10
+			}
 		}
-		limiter := clients[ip]
-		mu.Unlock()
 
-		if !limiter.Allow() {
-			c.JSON(http.StatusTooManyRequests, gin.H{
-				"error": "Terlalu banyak permintaan, akses dibatasi",
+		v := clients[ip]
+		v.lastSeen = now
+
+		// Cek Lock
+		if now.Before(v.isLockedUntil) {
+			remaining := time.Until(v.isLockedUntil).Seconds()
+			mu.Unlock()
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
+				"message": fmt.Sprintf("Akses dikunci sementara. Coba lagi dalam %.0f detik", remaining),
 			})
-			c.Abort()
 			return
 		}
+
+		// Cek Allow
+		if !v.limiter.Allow() {
+			v.isLockedUntil = now.Add(10 * time.Second)
+			mu.Unlock()
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
+				"message": "Terlalu banyak permintaan. Anda dikunci selama 10 detik",
+			})
+			return
+		}
+		mu.Unlock()
 		c.Next()
 	}
 }
