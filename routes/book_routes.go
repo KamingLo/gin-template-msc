@@ -10,7 +10,7 @@ func BookRoutes(r *gin.Engine) {
 	bookGroup := r.Group("/books")
 	{
 		// Public: Lihat semua buku
-		bookGroup.GET("/", controllers.GetBooks)
+		bookGroup.GET("", controllers.GetBooks)
 
 		// Protected: Operasi tulis/hapus
 		protected := bookGroup.Group("/")

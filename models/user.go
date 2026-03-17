@@ -13,6 +13,7 @@ type User struct {
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 
+	// Dont forget to binding the atributte that needed to fill from body
 	Username string `json:"username" binding:"required"`
 	Email    string `gorm:"unique" json:"email" binding:"required"`
 	Password string `json:"password" binding:"required"`

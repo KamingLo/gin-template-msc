@@ -12,8 +12,9 @@ type Book struct {
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
-	Title     string         `json:"title" binding:"required"`
-	Author    string         `json:"author" binding:"required"`
+
+	Title  string `json:"title" binding:"required"`
+	Author string `json:"author" binding:"required"`
 }
 
 func (b *Book) BeforeCreate(tx *gorm.DB) (err error) {
