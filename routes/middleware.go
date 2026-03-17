@@ -103,8 +103,6 @@ func RateLimitMiddleware() gin.HandlerFunc {
 
 		mu.Unlock()
 
-		// Log sukses
-		fmt.Printf("[RateLimit] SUCCESS: %s | Tokens: %.2f\n", identifier, v.limiter.Tokens())
 		c.Next()
 	}
 }
