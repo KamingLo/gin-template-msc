@@ -67,40 +67,44 @@ func AuthMiddleware() gin.HandlerFunc {
 func RateLimitMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
+		path := c.Request.URL.Path
+		identifier := ip + ":" + path
 		now := time.Now()
 
 		mu.Lock()
-		if _, found := clients[ip]; !found {
-			clients[ip] = &client{
-				limiter: rate.NewLimiter(rate.Every(30*time.Second/5), 5), // 5 req/s, burst 10
+		v, found := clients[identifier]
+		if !found {
+			v = &client{
+				limiter: rate.NewLimiter(rate.Every(30*time.Second/5), 5),
 			}
+			clients[identifier] = v
+			fmt.Printf("[RateLimit] New Registration: %s\n", identifier)
 		}
-
-		v := clients[ip]
 		v.lastSeen = now
 
-		// Cek Lock
-		if now.Before(v.isLockedUntil) {
+		// GABUNGKAN: Cek apakah masih terkunci ATAU apakah jatah token habis
+		if now.Before(v.isLockedUntil) || !v.limiter.Allow() {
+			// Jika baru saja kena limit (belum ada isLockedUntil), pasang lock-nya
+			if now.After(v.isLockedUntil) {
+				v.isLockedUntil = now.Add(30 * time.Second)
+				fmt.Printf("[RateLimit] LIMIT TRIGGERED: %s | Locked for 30s\n", identifier)
+			}
+
 			remaining := time.Until(v.isLockedUntil).Seconds()
 			mu.Unlock()
+
+			fmt.Printf("[RateLimit] REJECTED: %s | Retry in %.0fs\n", identifier, remaining)
+
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
-				"message": fmt.Sprintf("Requestmu ditolak, Coba lagi dalam %.0f detik", remaining),
+				"message": fmt.Sprintf("Batas 5 kali percobaan per 30 detik tercapai. Coba lagi dalam %.0f detik", remaining),
 			})
 			return
 		}
 
-		// Cek Allow
-		if !v.limiter.Allow() {
-			// Kunci selama 30 detik agar benar-benar berhenti
-			v.isLockedUntil = now.Add(30 * time.Second)
-			mu.Unlock()
-
-			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
-				"message": "Batas 5 kali percobaan per 30 detik tercapai. Anda dikunci selama 30 detik.",
-			})
-			return
-		}
 		mu.Unlock()
+
+		// Log sukses
+		fmt.Printf("[RateLimit] SUCCESS: %s | Tokens: %.2f\n", identifier, v.limiter.Tokens())
 		c.Next()
 	}
 }
