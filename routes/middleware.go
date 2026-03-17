@@ -72,7 +72,7 @@ func RateLimitMiddleware() gin.HandlerFunc {
 		mu.Lock()
 		if _, found := clients[ip]; !found {
 			clients[ip] = &client{
-				limiter: rate.NewLimiter(rate.Limit(5), 10), // 5 req/s, burst 10
+				limiter: rate.NewLimiter(rate.Every(30*time.Second/5), 5), // 5 req/s, burst 10
 			}
 		}
 
@@ -84,17 +84,19 @@ func RateLimitMiddleware() gin.HandlerFunc {
 			remaining := time.Until(v.isLockedUntil).Seconds()
 			mu.Unlock()
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
-				"message": fmt.Sprintf("Akses dikunci sementara. Coba lagi dalam %.0f detik", remaining),
+				"message": fmt.Sprintf("Requestmu ditolak, Coba lagi dalam %.0f detik", remaining),
 			})
 			return
 		}
 
 		// Cek Allow
 		if !v.limiter.Allow() {
-			v.isLockedUntil = now.Add(10 * time.Second)
+			// Kunci selama 30 detik agar benar-benar berhenti
+			v.isLockedUntil = now.Add(30 * time.Second)
 			mu.Unlock()
+
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
-				"message": "Terlalu banyak permintaan. Anda dikunci selama 10 detik",
+				"message": "Batas 5 kali percobaan per 30 detik tercapai. Anda dikunci selama 30 detik.",
 			})
 			return
 		}
