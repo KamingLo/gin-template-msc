@@ -1,11 +1,8 @@
-Here is the updated English version of your README. It includes the technical steps for using `go mod edit` and performing the global refactor.
-
----
-
 # 🚀 Go-Gin Modular Clean Architecture
 
 A robust and scalable production-ready backend template built with **Golang** and the **Gin Gonic** framework. This project implements a modular layered architecture to ensure maintainability and ease of testing.
 
+New Feature : Adding rate-limiter and cors for security
 ## 🏗️ Architecture Overview
 
 This project follows the **Models-Services-Controllers** pattern, ensuring that each component has a single responsibility:
@@ -157,7 +154,3 @@ go build -o main cmd/api/main.go
 * **Password Hashing**: Uses `bcrypt` for secure storage.
 * **JWT Authentication**: Stateless authentication using JSON Web Tokens.
 * **Environment Safety**: Critical credentials are never hardcoded and are excluded from Git via `.gitignore`.
-
----
-
-Would you like me to create a `setup.sh` script that automates the `go mod edit` and the string replacement for your users?
