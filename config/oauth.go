@@ -10,15 +10,14 @@ import (
 )
 
 func InitOAuth() {
-	// Key untuk session cookie (ganti dengan string random di .env)
-	key := os.Getenv("SESSION_SECRET")
+	key := os.Getenv("JWT_SECRET")
 	maxAge := 86400 * 30
 
 	store := sessions.NewCookieStore([]byte(key))
 	store.MaxAge(maxAge)
 	store.Options.Path = "/"
 	store.Options.HttpOnly = true
-	store.Options.Secure = false // Set true jika sudah HTTPS
+	store.Options.Secure = os.Getenv("GIN_MODE") == "release"
 
 	gothic.Store = store
 
@@ -26,7 +25,7 @@ func InitOAuth() {
 		google.New(
 			os.Getenv("GOOGLE_CLIENT_ID"),
 			os.Getenv("GOOGLE_CLIENT_SECRET"),
-			os.Getenv("GOOGLE_CALLBACK_URL"), // Sesuaikan domain
+			os.Getenv("GOOGLE_CALLBACK_URL"),
 			"email", "profile",
 		),
 	)

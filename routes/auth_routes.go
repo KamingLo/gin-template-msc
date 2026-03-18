@@ -7,15 +7,21 @@ import (
 )
 
 func AuthRoutes(r *gin.Engine) {
-	authGroup := r.Group("/auth")
+	auth := r.Group("/auth")
 	{
-		// Registrasi Manual & OTP
-		authGroup.POST("/otp", controllers.RequestOTP)
-		authGroup.POST("/register", controllers.Register)
-		authGroup.POST("/login", controllers.Login)
+		// Public Routes
+		auth.GET("/google", controllers.GoogleLogin)
+		auth.GET("/google/callback", controllers.GoogleCallback)
+		auth.POST("/login", controllers.Login)
+		auth.POST("/otp", controllers.RequestOTP)
+		auth.POST("/register", controllers.Register)
 
-		// Google OAuth2
-		authGroup.GET("/google", controllers.GoogleLogin)
-		authGroup.GET("/google/callback", controllers.GoogleCallback)
+		// Private Routes (Butuh Login)
+		private := auth.Group("/")
+		private.Use(AuthMiddleware())
+		{
+			private.GET("/me", controllers.GetMe)
+			private.POST("/logout", controllers.Logout)
+		}
 	}
 }

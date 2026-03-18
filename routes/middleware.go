@@ -8,8 +8,9 @@ import (
 	"sync"
 	"time"
 
+	"template/utils"
+
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/time/rate"
 )
 
@@ -42,24 +43,36 @@ func init() {
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" || len(authHeader) < 7 {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token dibutuhkan"})
+		var tokenString string
+
+		// 1. Cek Cookie (Untuk Web)
+		if cookie, err := c.Cookie("auth_token"); err == nil {
+			tokenString = cookie
+		} else {
+			// 2. Cek Header (Untuk Mobile/Flutter)
+			authHeader := c.GetHeader("Authorization")
+			if strings.HasPrefix(authHeader, "Bearer ") {
+				tokenString = authHeader[7:]
+			}
+		}
+
+		if tokenString == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi berakhir, silakan login kembali"})
 			c.Abort()
 			return
 		}
 
-		tokenString := authHeader[7:]
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			return []byte(os.Getenv("JWT_SECRET")), nil
-		})
-
-		if err != nil || !token.Valid {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token tidak valid atau kedaluwarsa"})
+		// Validasi JWT (Gunakan utils.ValidateToken buatanmu)
+		claims, err := utils.ValidateToken(tokenString, os.Getenv("JWT_SECRET"))
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token tidak valid"})
 			c.Abort()
 			return
 		}
 
+		// Simpan data user ke context agar bisa dipakai di controller
+		c.Set("user_id", claims["user_id"])
+		c.Set("user_email", claims["email"])
 		c.Next()
 	}
 }

@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 	"template/models"
@@ -11,23 +10,80 @@ import (
 	"github.com/markbates/goth/gothic"
 )
 
+// HELPER: Set HttpOnly Cookie
+func setAuthCookie(c *gin.Context, token string) {
+	isProd := os.Getenv("GIN_MODE") == "release"
+	domain := os.Getenv("COOKIE_DOMAIN") // Ambil dari ENV (localhost / domain.com)
+
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie("auth_token", token, 3600*24, "/", domain, isProd, true)
+}
+
+// GOOGLE LOGIN: Ambil URL untuk Frontend
+func GoogleLogin(c *gin.Context) {
+	platform := c.DefaultQuery("platform", "web")
+
+	// Simpan platform di session gothic agar terbaca di callback
+	sess, _ := gothic.Store.Get(c.Request, "auth-session")
+	sess.Values["platform"] = platform
+	sess.Save(c.Request, c.Writer)
+
+	q := c.Request.URL.Query()
+	q.Add("provider", "google")
+	c.Request.URL.RawQuery = q.Encode()
+
+	url, err := gothic.GetAuthURL(c.Writer, c.Request)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal inisiasi Google Auth"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"url": url})
+}
+
+// GOOGLE CALLBACK: Handle Redirect dari Google
+func GoogleCallback(c *gin.Context) {
+	user, err := gothic.CompleteUserAuth(c.Writer, c.Request)
+	if err != nil {
+		c.Redirect(http.StatusTemporaryRedirect, os.Getenv("OAUTH_FRONTEND_URL")+"?error=failed")
+		return
+	}
+
+	token, _ := services.HandleGoogleLogin(user.Email)
+
+	sess, _ := gothic.Store.Get(c.Request, "auth-session")
+	platform, _ := sess.Values["platform"].(string)
+
+	if platform == "mobile" {
+		// Khusus Flutter: Deep Link
+		c.Redirect(http.StatusTemporaryRedirect, "myapp://auth?token="+token)
+		return
+	}
+
+	// Khusus Web: Cookie & Redirect
+	setAuthCookie(c, token)
+	c.Redirect(http.StatusTemporaryRedirect, os.Getenv("SUCCESS_FRONTEND_URL"))
+}
+
+// REQUEST OTP HANDLER
 func RequestOTP(c *gin.Context) {
 	var input struct {
 		Email string `json:"email" binding:"required,email"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Format email tidak valid"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format email salah"})
 		return
 	}
 
 	if err := services.RequestOTP(input.Email); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Kode OTP telah dikirim ke email kamu"})
 }
 
+// REGISTER HANDLER
 func Register(c *gin.Context) {
 	var input struct {
 		models.User
@@ -35,7 +91,7 @@ func Register(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data tidak lengkap"})
 		return
 	}
 
@@ -44,58 +100,14 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Berhasil registrasi data baru"})
+	c.JSON(http.StatusCreated, gin.H{"message": "Registrasi berhasil, silakan login"})
 }
 
-func GoogleLogin(c *gin.Context) {
-	// Gothic butuh response writer dan request standar http
-	q := c.Request.URL.Query()
-	q.Add("provider", "google")
-	c.Request.URL.RawQuery = q.Encode()
-
-	gothic.BeginAuthHandler(c.Writer, c.Request)
-}
-
-func GoogleCallback(c *gin.Context) {
-	// Tetap tambahkan provider secara manual untuk gothic
-	q := c.Request.URL.Query()
-	q.Add("provider", "google")
-	c.Request.URL.RawQuery = q.Encode()
-
-	user, err := gothic.CompleteUserAuth(c.Writer, c.Request)
-
-	// Ambil URL dari environment
-	baseURL := os.Getenv("FRONTEND_URL")
-	successURL := os.Getenv("SUCCESS_FRONTEND_URL")
-
-	// 1. JIKA AUTENTIKASI GOOGLE GAGAL
-	// Arahkan kembali ke halaman login frontend dengan pesan error
-	if err != nil {
-		target := fmt.Sprintf("%s/login?error=auth_failed", baseURL)
-		c.Redirect(http.StatusTemporaryRedirect, target)
-		return
-	}
-
-	token, err := services.HandleGoogleLogin(user.Email)
-
-	// 2. JIKA EMAIL BELUM TERDAFTAR (HARUS REGISTRASI)
-	// Arahkan ke halaman register frontend dan bawa email user
-	if err != nil {
-		target := fmt.Sprintf("%s/register?email=%s&message=complete_your_profile", baseURL, user.Email)
-		c.Redirect(http.StatusTemporaryRedirect, target)
-		return
-	}
-
-	// 3. JIKA LOGIN BERHASIL
-	// Arahkan ke halaman sukses (Dashboard) dengan membawa token JWT
-	target := fmt.Sprintf("%s?token=%s", successURL, token)
-	c.Redirect(http.StatusTemporaryRedirect, target)
-}
-
+// LOGIN HANDLER
 func Login(c *gin.Context) {
 	var input models.UserLogin
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Input tidak valid"})
 		return
 	}
 
@@ -105,5 +117,24 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "login berhasil", "token": token})
+	setAuthCookie(c, token)
+	c.JSON(http.StatusOK, gin.H{"message": "Login berhasil", "token": token})
+}
+
+// LOGOUT HANDLER
+func Logout(c *gin.Context) {
+	domain := os.Getenv("COOKIE_DOMAIN")
+	c.SetCookie("auth_token", "", -1, "/", domain, false, true)
+	c.JSON(http.StatusOK, gin.H{"message": "Berhasil keluar"})
+}
+
+// GET ME HANDLER (Dapatkan profil dari context middleware)
+func GetMe(c *gin.Context) {
+	id, _ := c.Get("user_id")
+	email, _ := c.Get("user_email")
+
+	c.JSON(http.StatusOK, gin.H{
+		"id":    id,
+		"email": email,
+	})
 }
