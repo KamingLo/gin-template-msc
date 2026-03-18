@@ -35,7 +35,7 @@ func ConnectDatabase() {
 	}
 
 	// Auto Migrate tabel
-	database.AutoMigrate(&models.Book{}, &models.User{})
+	database.AutoMigrate(&models.Book{}, &models.User{}, &models.OTP{})
 
 	DB = database
 	fmt.Println("Berhasil terkoneksi ke Supabase!")

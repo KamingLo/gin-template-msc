@@ -19,6 +19,6 @@ type Book struct {
 }
 
 func (b *Book) BeforeCreate(tx *gorm.DB) (err error) {
-	b.ID = utils.GenerateCustomID("BK", 4)
+	b.ID = utils.GenerateCustomID("bk", 4)
 	return nil
 }

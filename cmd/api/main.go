@@ -21,7 +21,7 @@ func main() {
 
 	// 3. Inisialisasi Database
 	config.ConnectDatabase()
-
+	config.InitOAuth()
 	// 4. Setup Router
 	r := routes.SetupRouter()
 
