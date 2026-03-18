@@ -10,24 +10,16 @@ import (
 	"github.com/markbates/goth/gothic"
 )
 
-// HELPER: Set HttpOnly Cookie
-func setAuthCookie(c *gin.Context, token string) {
-	isProd := os.Getenv("GIN_MODE") == "release"
-	domain := os.Getenv("COOKIE_DOMAIN") // Ambil dari ENV (localhost / domain.com)
-
-	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie("auth_token", token, 3600*24, "/", domain, isProd, true)
-}
-
-// GOOGLE LOGIN: Ambil URL untuk Frontend
+// GOOGLE LOGIN: Mendapatkan URL autentikasi untuk dikirim ke Frontend
 func GoogleLogin(c *gin.Context) {
 	platform := c.DefaultQuery("platform", "web")
 
-	// Simpan platform di session gothic agar terbaca di callback
+	// Simpan platform di session gothic agar bisa dibaca saat callback
 	sess, _ := gothic.Store.Get(c.Request, "auth-session")
 	sess.Values["platform"] = platform
 	sess.Save(c.Request, c.Writer)
 
+	// Tambahkan provider google secara manual ke query request
 	q := c.Request.URL.Query()
 	q.Add("provider", "google")
 	c.Request.URL.RawQuery = q.Encode()
@@ -38,14 +30,22 @@ func GoogleLogin(c *gin.Context) {
 		return
 	}
 
+	// Kirim URL ke frontend agar frontend yang melakukan window.location.href
 	c.JSON(http.StatusOK, gin.H{"url": url})
 }
 
-// GOOGLE CALLBACK: Handle Redirect dari Google
+// GOOGLE CALLBACK: Menangani kembalian dari Google
 func GoogleCallback(c *gin.Context) {
+	// PENTING: Gothic butuh query 'provider' di URL Callback
+	// Jika route kamu adalah /auth/google/callback, tambahkan ini:
+	q := c.Request.URL.Query()
+	q.Add("provider", "google")
+	c.Request.URL.RawQuery = q.Encode()
+
 	user, err := gothic.CompleteUserAuth(c.Writer, c.Request)
 	if err != nil {
-		c.Redirect(http.StatusTemporaryRedirect, os.Getenv("OAUTH_FRONTEND_URL")+"?error=failed")
+		// Jika error di sini, biasanya karena session/cookie Goth hilang
+		c.Redirect(http.StatusTemporaryRedirect, os.Getenv("OAUTH_FRONTEND_URL")+"?error=failed_to_complete_auth")
 		return
 	}
 
@@ -55,17 +55,15 @@ func GoogleCallback(c *gin.Context) {
 	platform, _ := sess.Values["platform"].(string)
 
 	if platform == "mobile" {
-		// Khusus Flutter: Deep Link
 		c.Redirect(http.StatusTemporaryRedirect, "myapp://auth?token="+token)
 		return
 	}
 
-	// Khusus Web: Cookie & Redirect
-	setAuthCookie(c, token)
-	c.Redirect(http.StatusTemporaryRedirect, os.Getenv("SUCCESS_FRONTEND_URL"))
+	// Redirect ke Next.js API Callback
+	c.Redirect(http.StatusTemporaryRedirect, os.Getenv("SUCCESS_FRONTEND_URL")+"?token="+token)
 }
 
-// REQUEST OTP HANDLER
+// REQUEST OTP: Mengirim kode OTP ke email
 func RequestOTP(c *gin.Context) {
 	var input struct {
 		Email string `json:"email" binding:"required,email"`
@@ -83,7 +81,7 @@ func RequestOTP(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Kode OTP telah dikirim ke email kamu"})
 }
 
-// REGISTER HANDLER
+// REGISTER: Membuat akun baru dengan verifikasi OTP
 func Register(c *gin.Context) {
 	var input struct {
 		models.User
@@ -103,7 +101,7 @@ func Register(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "Registrasi berhasil, silakan login"})
 }
 
-// LOGIN HANDLER
+// LOGIN: Mengembalikan token JWT dalam bentuk JSON
 func Login(c *gin.Context) {
 	var input models.UserLogin
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -117,19 +115,23 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	setAuthCookie(c, token)
-	c.JSON(http.StatusOK, gin.H{"message": "Login berhasil", "token": token})
+	// Output murni JSON, Next.js yang akan simpan ke HttpOnly Cookie
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Login berhasil",
+		"token":   token,
+	})
 }
 
-// LOGOUT HANDLER
+// LOGOUT: Stateless logout hanya memberikan respon sukses
 func Logout(c *gin.Context) {
-	domain := os.Getenv("COOKIE_DOMAIN")
-	c.SetCookie("auth_token", "", -1, "/", domain, false, true)
+	// Karena stateless, backend tidak perlu menghapus cookie.
+	// Cukup berikan instruksi sukses agar frontend menghapus token di sisinya.
 	c.JSON(http.StatusOK, gin.H{"message": "Berhasil keluar"})
 }
 
-// GET ME HANDLER (Dapatkan profil dari context middleware)
+// GET ME: Mengambil data user yang sedang login
 func GetMe(c *gin.Context) {
+	// Data ini didapat dari Middleware Auth yang memparsing Token
 	id, _ := c.Get("user_id")
 	email, _ := c.Get("user_email")
 
