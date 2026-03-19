@@ -17,7 +17,7 @@ func RequestOTP(email string) error {
 	var existingUser models.User
 	err := config.DB.Where("email = ?", email).First(&existingUser).Error
 	if err == nil {
-		return errors.New("email sudah terdaftar, silakan langsung login")
+		return errors.New("Email sudah terdaftar, silakan langsung login")
 	}
 
 	// 2. Generate 6 digit kode random
@@ -35,14 +35,14 @@ func RequestOTP(email string) error {
 
 	// 5. Simpan ke database
 	if err := config.DB.Create(&otp).Error; err != nil {
-		return errors.New("gagal membuat sesi verifikasi")
+		return errors.New("Gagal membuat sesi verifikasi")
 	}
 
 	// 6. EKSEKUSI KIRIM EMAIL
 	if err := SendRegistrationOTP(email, code); err != nil {
 		// Jika email gagal, kita hapus lagi OTP-nya biar konsisten
 		config.DB.Delete(&otp)
-		return errors.New("gagal mengirim email, pastikan alamat email benar")
+		return errors.New("Gagal mengirim email, pastikan alamat email benar")
 	}
 
 	return nil
@@ -52,7 +52,7 @@ func RegisterWithOTP(input *models.User, otpCode string) error {
 	var otp models.OTP
 	err := config.DB.Where("email = ? AND code = ?", input.Email, otpCode).First(&otp).Error
 	if err != nil || time.Now().After(otp.ExpiredAt) {
-		return errors.New("kode OTP salah atau kedaluwarsa")
+		return errors.New("Kode OTP salah atau kedaluwarsa")
 	}
 
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
@@ -60,7 +60,7 @@ func RegisterWithOTP(input *models.User, otpCode string) error {
 
 	// GORM akan otomatis menjalankan BeforeCreate untuk GenerateCustomID
 	if err := config.DB.Create(input).Error; err != nil {
-		return errors.New("gagal menyimpan akun")
+		return errors.New("Gagal menyimpan akun")
 	}
 
 	config.DB.Delete(&otp)
@@ -69,12 +69,13 @@ func RegisterWithOTP(input *models.User, otpCode string) error {
 
 func LoginUser(input models.UserLogin) (string, error) {
 	var user models.User
+
 	if err := config.DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
-		return "", errors.New("email atau password salah")
+		return "", errors.New("Email salah")
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password)); err != nil {
-		return "", errors.New("email atau password salah")
+		return "", errors.New("Password salah")
 	}
 
 	// user.ID sekarang bertipe string
@@ -83,17 +84,13 @@ func LoginUser(input models.UserLogin) (string, error) {
 
 func HandleGoogleLogin(email string) (string, error) {
 	var user models.User
+
+	// Cari user berdasarkan email
 	if err := config.DB.Where("email = ?", email).First(&user).Error; err != nil {
-		// Jika belum ada, buat user baru dengan Username default dari email
-		user = models.User{
-			Username: email,
-			Email:    email,
-			Password: "", // OAuth tidak butuh password lokal
-		}
-		if err := config.DB.Create(&user).Error; err != nil {
-			return "", err
-		}
+		// Jika tidak ditemukan, kembalikan error agar controller tahu user belum terdaftar
+		return "", err
 	}
 
+	// Jika user ditemukan, buatkan token
 	return utils.GenerateToken(user.ID, user.Email)
 }

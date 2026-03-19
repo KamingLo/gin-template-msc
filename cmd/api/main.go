@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"os"
 	"template/config"
 	"template/routes"
@@ -29,5 +30,8 @@ func main() {
 	if port == "" {
 		port = "9000" // Default port jika di env kosong
 	}
-	r.Run(":" + port)
+	err := r.Run(":" + port)
+	if err != nil {
+		log.Fatalf("Gagal menjalankan server: %v", err)
+	}
 }

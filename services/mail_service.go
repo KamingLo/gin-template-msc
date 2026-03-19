@@ -1,13 +1,20 @@
 package services
 
 import (
+	"bytes"
 	"crypto/tls"
 	"fmt"
+	"html/template"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"gopkg.in/gomail.v2"
 )
+
+type DataOTP struct {
+	OTP string
+}
 
 // SendEmail adalah fungsi umum untuk kirim email apa pun
 func SendEmail(toEmail, subject, body string) error {
@@ -39,17 +46,30 @@ func SendEmail(toEmail, subject, body string) error {
 func SendRegistrationOTP(toEmail, otp string) error {
 	subject := "Verifikasi Akun - Kode OTP"
 
-	// Template HTML sederhana & clean
-	body := fmt.Sprintf(`
-		<div style="font-family: sans-serif; max-width: 400px; margin: auto; border: 1px solid #e5e7eb; padding: 24px; border-radius: 16px;">
-			<h2 style="color: #18181b; margin-bottom: 8px;">Halo!</h2>
-			<p style="color: #71717a; font-size: 14px;">Gunakan kode OTP di bawah ini untuk menyelesaikan pendaftaran akun kamu.</p>
-			<div style="background: #f4f4f5; padding: 16px; border-radius: 12px; text-align: center; margin: 24px 0;">
-				<span style="font-size: 32px; font-weight: bold; color: #000; letter-spacing: 4px;">%s</span>
-			</div>
-			<p style="font-size: 12px; color: #a1a1aa;">Kode ini berlaku selama 5 menit. Jangan bagikan kepada siapa pun.</p>
-		</div>
-	`, otp)
+	tmplPath := filepath.Join("templates", "otp.html")
+	tmpl, err := template.ParseFiles(tmplPath)
+	if err != nil {
+		return fmt.Errorf("Gagal parse template: %w", err)
+	}
 
-	return SendEmail(toEmail, subject, body)
+	var body bytes.Buffer
+	data := DataOTP{OTP: otp}
+	if err := tmpl.Execute(&body, data); err != nil {
+		return fmt.Errorf("Gagal execute template: %w", err)
+	}
+
+	go func(targetEmail, mailSubject, mailBody string) {
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Printf("[Panic Recovery] Error saat kirim email ke %s: %v\n", targetEmail, r)
+			}
+		}()
+
+		err := SendEmail(targetEmail, mailSubject, mailBody)
+		if err != nil {
+			fmt.Printf("[Error Background] Gagal kirim email ke %s: %v\n", targetEmail, err)
+		}
+	}(toEmail, subject, body.String())
+
+	return nil
 }

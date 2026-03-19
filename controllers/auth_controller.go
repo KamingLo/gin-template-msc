@@ -37,29 +37,46 @@ func GoogleLogin(c *gin.Context) {
 // GOOGLE CALLBACK: Menangani kembalian dari Google
 func GoogleCallback(c *gin.Context) {
 	// PENTING: Gothic butuh query 'provider' di URL Callback
-	// Jika route kamu adalah /auth/google/callback, tambahkan ini:
 	q := c.Request.URL.Query()
 	q.Add("provider", "google")
 	c.Request.URL.RawQuery = q.Encode()
 
 	user, err := gothic.CompleteUserAuth(c.Writer, c.Request)
 	if err != nil {
-		// Jika error di sini, biasanya karena session/cookie Goth hilang
 		c.Redirect(http.StatusTemporaryRedirect, os.Getenv("OAUTH_FRONTEND_URL")+"?error=failed_to_complete_auth")
 		return
 	}
 
-	token, _ := services.HandleGoogleLogin(user.Email)
-
+	// Ambil session untuk cek platform
 	sess, _ := gothic.Store.Get(c.Request, "auth-session")
 	platform, _ := sess.Values["platform"].(string)
 
+	// Coba login (cek apakah user sudah ada di DB)
+	token, err := services.HandleGoogleLogin(user.Email)
+
+	// --- LOGIKA REGISTER PAKSA ---
+	if err != nil {
+		// User belum terdaftar di database
+		registerParams := "?email=" + user.Email + "&method=google"
+
+		if platform == "mobile" {
+			// Arahkan ke Deep Link register di aplikasi mobile
+			c.Redirect(http.StatusTemporaryRedirect, "myapp://register"+registerParams)
+			return
+		}
+
+		// Arahkan ke halaman register di Next.js (Web)
+		registerURL := os.Getenv("OAUTH_FRONTEND_URL") + "/register" + registerParams
+		c.Redirect(http.StatusTemporaryRedirect, registerURL)
+		return
+	}
+
+	// --- LOGIKA LOGIN SUKSES (User sudah ada) ---
 	if platform == "mobile" {
 		c.Redirect(http.StatusTemporaryRedirect, "myapp://auth?token="+token)
 		return
 	}
 
-	// Redirect ke Next.js API Callback
 	c.Redirect(http.StatusTemporaryRedirect, os.Getenv("SUCCESS_FRONTEND_URL")+"?token="+token)
 }
 
