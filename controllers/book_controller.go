@@ -4,28 +4,34 @@ import (
 	"net/http"
 	"template/models"
 	"template/services"
+	"template/utils" // Pastikan import helper ini ada
 
 	"github.com/gin-gonic/gin"
 )
 
 func GetBooks(c *gin.Context) {
-	books, _ := services.GetAllBooks()
-	c.JSON(http.StatusOK, books)
+	books, err := services.GetAllBooks()
+	if err != nil {
+		utils.SendError(c, http.StatusInternalServerError, "Gagal mengambil data buku", err)
+		return
+	}
+
+	utils.SendSuccess(c, http.StatusOK, "Berhasil mengambil semua data buku", books)
 }
 
 func CreateBook(c *gin.Context) {
 	var input models.Book
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		utils.SendError(c, http.StatusBadRequest, "Input tidak valid", err)
 		return
 	}
 
 	if err := services.CreateBook(&input); err != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "Gagal menyimpan data", "detail": err.Error()})
+		utils.SendError(c, http.StatusConflict, "Gagal menyimpan data", err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Buku berhasil disimpan", "data": input})
+	utils.SendSuccess(c, http.StatusCreated, "Buku berhasil disimpan", input)
 }
 
 func UpdateBook(c *gin.Context) {
@@ -33,24 +39,25 @@ func UpdateBook(c *gin.Context) {
 	var input map[string]interface{}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		utils.SendError(c, http.StatusBadRequest, "Format data salah", err)
 		return
 	}
 
 	book, err := services.UpdateBook(id, input)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"message": "Data tidak ditemukan atau gagal update"})
+		utils.SendError(c, http.StatusNotFound, "Data tidak ditemukan atau gagal update", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Update berhasil", "data": book})
+	utils.SendSuccess(c, http.StatusOK, "Update berhasil", book)
 }
 
 func DeleteBook(c *gin.Context) {
 	id := c.Param("id")
 	if err := services.DeleteBook(id); err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"message": "Data tidak ditemukan atau sudah dihapus"})
+		utils.SendError(c, http.StatusNotFound, "Data tidak ditemukan atau sudah dihapus", err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Berhasil dihapus"})
+
+	utils.SendSuccess(c, http.StatusOK, "Berhasil dihapus", nil)
 }

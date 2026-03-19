@@ -43,36 +43,33 @@ func init() {
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var tokenString string
+		// 1. Ambil Header Authorization
+		authHeader := c.GetHeader("Authorization")
 
-		// 1. Cek Cookie (Untuk Web)
-		if cookie, err := c.Cookie("auth_token"); err == nil {
-			tokenString = cookie
-		} else {
-			// 2. Cek Header (Untuk Mobile/Flutter)
-			authHeader := c.GetHeader("Authorization")
-			if strings.HasPrefix(authHeader, "Bearer ") {
-				tokenString = authHeader[7:]
-			}
-		}
-
-		if tokenString == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi berakhir, silakan login kembali"})
+		// 2. Validasi format: Harus dimulai dengan "Bearer "
+		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+			// Gunakan utils.SendError agar format JSON seragam
+			utils.SendError(c, http.StatusUnauthorized, "Sesi berakhir, silakan login kembali", nil)
 			c.Abort()
 			return
 		}
 
-		// Validasi JWT (Gunakan utils.ValidateToken buatanmu)
+		// 3. Potong string untuk mendapatkan token murni
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+
+		// 4. Validasi JWT
 		claims, err := utils.ValidateToken(tokenString, os.Getenv("JWT_SECRET"))
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token tidak valid"})
+			utils.SendError(c, http.StatusUnauthorized, "Token tidak valid atau kadaluarsa", err)
 			c.Abort()
 			return
 		}
 
-		// Simpan data user ke context agar bisa dipakai di controller
+		// 5. Simpan data user ke context Gin
+		// Pastikan claims["user_id"] dan claims["email"] sesuai dengan struct JWT kamu
 		c.Set("user_id", claims["user_id"])
 		c.Set("user_email", claims["email"])
+
 		c.Next()
 	}
 }

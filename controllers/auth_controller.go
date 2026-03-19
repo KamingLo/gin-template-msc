@@ -5,100 +5,95 @@ import (
 	"os"
 	"template/models"
 	"template/services"
+	"template/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/markbates/goth/gothic"
 )
 
-// GOOGLE LOGIN: Mendapatkan URL autentikasi untuk dikirim ke Frontend
 func GoogleLogin(c *gin.Context) {
 	platform := c.DefaultQuery("platform", "web")
 
-	// Simpan platform di session gothic agar bisa dibaca saat callback
 	sess, _ := gothic.Store.Get(c.Request, "auth-session")
 	sess.Values["platform"] = platform
 	sess.Save(c.Request, c.Writer)
 
-	// Tambahkan provider google secara manual ke query request
 	q := c.Request.URL.Query()
 	q.Add("provider", "google")
 	c.Request.URL.RawQuery = q.Encode()
 
 	url, err := gothic.GetAuthURL(c.Writer, c.Request)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal inisiasi Google Auth"})
+		utils.SendError(c, http.StatusInternalServerError, "Gagal inisiasi Google Auth", err)
 		return
 	}
 
-	// Kirim URL ke frontend agar frontend yang melakukan window.location.href
-	c.JSON(http.StatusOK, gin.H{"url": url})
+	utils.SendSuccess(c, http.StatusOK, "URL Auth berhasil dibuat", gin.H{"url": url})
 }
 
-// GOOGLE CALLBACK: Menangani kembalian dari Google
 func GoogleCallback(c *gin.Context) {
-	// PENTING: Gothic butuh query 'provider' di URL Callback
 	q := c.Request.URL.Query()
 	q.Add("provider", "google")
 	c.Request.URL.RawQuery = q.Encode()
 
 	user, err := gothic.CompleteUserAuth(c.Writer, c.Request)
 	if err != nil {
-		c.Redirect(http.StatusTemporaryRedirect, os.Getenv("OAUTH_FRONTEND_URL")+"?error=failed_to_complete_auth")
+		// Jika gagal auth Google, balikkan ke login dengan pesan error
+		loginURL := os.Getenv("OAUTH_FRONTEND_URL") + "?error=google_auth_failed"
+		c.Redirect(http.StatusTemporaryRedirect, loginURL)
 		return
 	}
 
-	// Ambil session untuk cek platform
 	sess, _ := gothic.Store.Get(c.Request, "auth-session")
 	platform, _ := sess.Values["platform"].(string)
 
-	// Coba login (cek apakah user sudah ada di DB)
 	token, err := services.HandleGoogleLogin(user.Email)
 
-	// --- LOGIKA REGISTER PAKSA ---
+	// Kasus: User belum terdaftar di database
 	if err != nil {
-		// User belum terdaftar di database
-		registerParams := "?email=" + user.Email + "&method=google"
+		// Redirect ke halaman login dengan pesan bahwa user belum terdaftar
+		// Frontend (Next.js) bisa mengambil param 'error' untuk menampilkan alert
+		errorMessage := "user_not_registered"
+		loginURL := os.Getenv("OAUTH_FRONTEND_URL") + "?error=" + errorMessage + "&email=" + user.Email
 
+		// Jika mobile, gunakan deep link ke halaman login/register di app
 		if platform == "mobile" {
-			// Arahkan ke Deep Link register di aplikasi mobile
-			c.Redirect(http.StatusTemporaryRedirect, "myapp://register"+registerParams)
+			c.Redirect(http.StatusTemporaryRedirect, "myapp://login?error="+errorMessage)
 			return
 		}
 
-		// Arahkan ke halaman register di Next.js (Web)
-		registerURL := os.Getenv("OAUTH_FRONTEND_URL") + "/register" + registerParams
-		c.Redirect(http.StatusTemporaryRedirect, registerURL)
+		c.Redirect(http.StatusTemporaryRedirect, loginURL)
 		return
 	}
 
-	// --- LOGIKA LOGIN SUKSES (User sudah ada) ---
+	// Kasus: Sukses Login
 	if platform == "mobile" {
 		c.Redirect(http.StatusTemporaryRedirect, "myapp://auth?token="+token)
 		return
 	}
 
+	// Redirect ke proxy callback Next.js untuk set HttpOnly Cookie
+	// Pastikan SUCCESS_FRONTEND_URL mengarah ke /api/auth/callback
 	c.Redirect(http.StatusTemporaryRedirect, os.Getenv("SUCCESS_FRONTEND_URL")+"?token="+token)
 }
 
-// REQUEST OTP: Mengirim kode OTP ke email
 func RequestOTP(c *gin.Context) {
 	var input struct {
 		Email string `json:"email" binding:"required,email"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Format email salah"})
+		utils.SendError(c, http.StatusBadRequest, "Format email salah", err)
 		return
 	}
 
 	if err := services.RequestOTP(input.Email); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		utils.SendError(c, http.StatusBadRequest, "Gagal mengirim OTP", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Kode OTP telah dikirim ke email kamu"})
+	utils.SendSuccess(c, http.StatusOK, "Kode OTP telah dikirim ke email kamu", nil)
 }
 
-// REGISTER: Membuat akun baru dengan verifikasi OTP
 func Register(c *gin.Context) {
 	var input struct {
 		models.User
@@ -106,53 +101,47 @@ func Register(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Data tidak lengkap"})
+		utils.SendError(c, http.StatusBadRequest, "Data tidak lengkap", err)
 		return
 	}
 
 	if err := services.RegisterWithOTP(&input.User, input.OTPCode); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		utils.SendError(c, http.StatusBadRequest, "Gagal registrasi", err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Registrasi berhasil, silakan login"})
+	utils.SendSuccess(c, http.StatusCreated, "Registrasi berhasil, silakan login", nil)
 }
 
-// LOGIN: Mengembalikan token JWT dalam bentuk JSON
 func Login(c *gin.Context) {
 	var input models.UserLogin
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Input tidak valid"})
+		utils.SendError(c, http.StatusBadRequest, "Input tidak valid", err)
 		return
 	}
 
 	token, err := services.LoginUser(input)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		utils.SendError(c, http.StatusUnauthorized, "Email atau password salah", err)
 		return
 	}
 
-	// Output murni JSON, Next.js yang akan simpan ke HttpOnly Cookie
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Login berhasil",
-		"token":   token,
+	// Murni kirim JSON, frontend yang handle penyimpanan
+	utils.SendSuccess(c, http.StatusOK, "Login berhasil", gin.H{
+		"token": token,
 	})
 }
 
-// LOGOUT: Stateless logout hanya memberikan respon sukses
 func Logout(c *gin.Context) {
-	// Karena stateless, backend tidak perlu menghapus cookie.
-	// Cukup berikan instruksi sukses agar frontend menghapus token di sisinya.
-	c.JSON(http.StatusOK, gin.H{"message": "Berhasil keluar"})
+	// Karena stateless, cukup beri respon sukses
+	utils.SendSuccess(c, http.StatusOK, "Berhasil keluar", nil)
 }
 
-// GET ME: Mengambil data user yang sedang login
 func GetMe(c *gin.Context) {
-	// Data ini didapat dari Middleware Auth yang memparsing Token
 	id, _ := c.Get("user_id")
 	email, _ := c.Get("user_email")
 
-	c.JSON(http.StatusOK, gin.H{
+	utils.SendSuccess(c, http.StatusOK, "Data profil berhasil diambil", gin.H{
 		"id":    id,
 		"email": email,
 	})
