@@ -71,7 +71,7 @@ func LoginUser(input models.UserLogin) (string, error) {
 	var user models.User
 
 	if err := config.DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
-		return "", errors.New("Email salah")
+		return "", errors.New("Email tidak ditemukan")
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password)); err != nil {
@@ -87,8 +87,7 @@ func HandleGoogleLogin(email string) (string, error) {
 
 	// Cari user berdasarkan email
 	if err := config.DB.Where("email = ?", email).First(&user).Error; err != nil {
-		// Jika tidak ditemukan, kembalikan error agar controller tahu user belum terdaftar
-		return "", err
+		return "", errors.New("User tidak ditemukan")
 	}
 
 	// Jika user ditemukan, buatkan token

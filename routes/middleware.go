@@ -92,9 +92,7 @@ func RateLimitMiddleware() gin.HandlerFunc {
 		}
 		v.lastSeen = now
 
-		// GABUNGKAN: Cek apakah masih terkunci ATAU apakah jatah token habis
 		if now.Before(v.isLockedUntil) || !v.limiter.Allow() {
-			// Jika baru saja kena limit (belum ada isLockedUntil), pasang lock-nya
 			if now.After(v.isLockedUntil) {
 				v.isLockedUntil = now.Add(30 * time.Second)
 				fmt.Printf("[RateLimit] LIMIT TRIGGERED: %s | Locked for 30s\n", identifier)
@@ -124,8 +122,6 @@ func CORSMiddleware() gin.HandlerFunc {
 		origin := c.GetHeader("Origin")
 
 		isAllowed := false
-		// Jika origin kosong (misal request dari Postman atau Mobile App non-browser)
-		// Biasanya kita izinkan, atau Anda bisa perketat jika mau.
 		if origin == "" {
 			isAllowed = true
 		} else {
@@ -137,7 +133,6 @@ func CORSMiddleware() gin.HandlerFunc {
 			}
 		}
 
-		// 1. Jika TIDAK diizinkan, langsung stop dan beri pesan error
 		if !isAllowed {
 			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
 			c.JSON(http.StatusForbidden, gin.H{
@@ -147,16 +142,14 @@ func CORSMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// 2. Jika diizinkan, set header Allow-Origin
 		if origin != "" {
 			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PATCH, DELETE")
 
-		// 3. Tangani Pre-flight OPTIONS
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return
