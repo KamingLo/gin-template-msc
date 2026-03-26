@@ -15,7 +15,6 @@ type OTP struct {
 }
 
 func (o *OTP) BeforeCreate(tx *gorm.DB) (err error) {
-	// Menghasilkan ID seperti: USR-20260314-aB12
 	o.ID = utils.GenerateCustomID("otp", 4)
 	return nil
 }

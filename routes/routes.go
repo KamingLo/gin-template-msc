@@ -10,7 +10,6 @@ func SetupRouter() *gin.Engine {
 	r.Use(CORSMiddleware())
 	r.Use(RateLimitMiddleware())
 
-	// Panggil rute-rute yang sudah dipisah
 	AuthRoutes(r)
 	BookRoutes(r)
 

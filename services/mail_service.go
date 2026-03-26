@@ -16,7 +16,6 @@ type DataOTP struct {
 	OTP string
 }
 
-// SendEmail adalah fungsi umum untuk kirim email apa pun
 func SendEmail(toEmail, subject, body string) error {
 	host := os.Getenv("MAIL_HOST")
 	port, _ := strconv.Atoi(os.Getenv("MAIL_PORT"))
@@ -33,7 +32,6 @@ func SendEmail(toEmail, subject, body string) error {
 
 	d := gomail.NewDialer(host, port, username, password)
 
-	// Konfigurasi SSL untuk Gmail port 465
 	d.TLSConfig = &tls.Config{InsecureSkipVerify: true}
 
 	if err := d.DialAndSend(m); err != nil {
@@ -42,7 +40,6 @@ func SendEmail(toEmail, subject, body string) error {
 	return nil
 }
 
-// SendRegistrationOTP khusus untuk kirim kode verifikasi
 func SendRegistrationOTP(toEmail, otp string) error {
 	subject := "Verifikasi Akun - Kode OTP"
 

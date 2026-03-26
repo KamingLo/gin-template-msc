@@ -38,7 +38,6 @@ func GoogleCallback(c *gin.Context) {
 
 	user, err := gothic.CompleteUserAuth(c.Writer, c.Request)
 	if err != nil {
-		// Jika gagal auth Google, balikkan ke login dengan pesan error
 		loginURL := os.Getenv("OAUTH_FRONTEND_URL") + "?error=google_auth_failed"
 		c.Redirect(http.StatusTemporaryRedirect, loginURL)
 		return
@@ -49,14 +48,10 @@ func GoogleCallback(c *gin.Context) {
 
 	token, err := services.HandleGoogleLogin(user.Email)
 
-	// Kasus: User belum terdaftar di database
 	if err != nil {
-		// Redirect ke halaman login dengan pesan bahwa user belum terdaftar
-		// Frontend (Next.js) bisa mengambil param 'error' untuk menampilkan alert
 		errorMessage := "user_not_registered"
 		loginURL := os.Getenv("OAUTH_FRONTEND_URL") + "?error=" + errorMessage + "&email=" + user.Email
 
-		// Jika mobile, gunakan deep link ke halaman login/register di app
 		if platform == "mobile" {
 			c.Redirect(http.StatusTemporaryRedirect, "myapp://login?error="+errorMessage)
 			return
@@ -66,14 +61,11 @@ func GoogleCallback(c *gin.Context) {
 		return
 	}
 
-	// Kasus: Sukses Login
 	if platform == "mobile" {
 		c.Redirect(http.StatusTemporaryRedirect, "myapp://auth?token="+token)
 		return
 	}
 
-	// Redirect ke proxy callback Next.js untuk set HttpOnly Cookie
-	// Pastikan SUCCESS_FRONTEND_URL mengarah ke /api/auth/callback
 	c.Redirect(http.StatusTemporaryRedirect, os.Getenv("SUCCESS_FRONTEND_URL")+"?token="+token)
 }
 
@@ -126,14 +118,12 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	// Murni kirim JSON, frontend yang handle penyimpanan
 	utils.SendSuccess(c, http.StatusOK, "Login berhasil", gin.H{
 		"token": token,
 	})
 }
 
 func Logout(c *gin.Context) {
-	// Karena stateless, cukup beri respon sukses
 	utils.SendSuccess(c, http.StatusOK, "Berhasil keluar", nil)
 }
 

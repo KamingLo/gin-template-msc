@@ -15,7 +15,6 @@ type APIResponse struct {
 func SendError(c *gin.Context, statusCode int, message string, err interface{}) {
 	var detail interface{}
 
-	// Cek apakah yang dikirim adalah tipe error asli atau data lain
 	switch v := err.(type) {
 	case error:
 		detail = v.Error()
@@ -30,7 +29,6 @@ func SendError(c *gin.Context, statusCode int, message string, err interface{}) 
 	})
 }
 
-// (Optional) SendSuccess untuk konsistensi respon sukses
 func SendSuccess(c *gin.Context, statusCode int, message string, data interface{}) {
 	c.JSON(statusCode, APIResponse{
 		Status:  true,

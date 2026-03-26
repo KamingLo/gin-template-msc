@@ -13,7 +13,6 @@ type Book struct {
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 
-	// Dont forget to binding the atributte that needed to fill from body
 	Title  string `json:"title" binding:"required"`
 	Author string `json:"author" binding:"required"`
 }

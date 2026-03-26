@@ -16,7 +16,7 @@ func AuthRoutes(r *gin.Engine) {
 		auth.POST("/otp", controllers.RequestOTP)
 		auth.POST("/register", controllers.Register)
 
-		// Private Routes (Butuh Login)
+		// Private Routes (login needed)
 		private := auth.Group("/")
 		private.Use(AuthMiddleware())
 		{

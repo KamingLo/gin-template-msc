@@ -6,13 +6,11 @@ import (
 	"time"
 )
 
-// GenerateCustomID menghasilkan format: PREFIX-YYYYMMDD-RANDOM
 func GenerateCustomID(prefix string, length int) string {
-	const charset = "abcdefghijklmnopqrstuvwxyz0123456789" // Gunakan Uppercase agar seragam di URL
+	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
 	datePart := time.Now().Format("20060102")
 
 	result := make([]byte, length)
-	// Langsung loop untuk mengisi karakter
 	for i := 0; i < length; i++ {
 		randomByte := make([]byte, 1)
 		rand.Read(randomByte)

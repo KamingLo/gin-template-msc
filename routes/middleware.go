@@ -31,7 +31,6 @@ func init() {
 			time.Sleep(2 * time.Minute)
 			mu.Lock()
 			for ip, v := range clients {
-				// Hapus IP yang sudah tidak aktif lebih dari 5 menit
 				if time.Since(v.lastSeen) > 5*time.Minute {
 					delete(clients, ip)
 				}
@@ -43,21 +42,16 @@ func init() {
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 1. Ambil Header Authorization
 		authHeader := c.GetHeader("Authorization")
 
-		// 2. Validasi format: Harus dimulai dengan "Bearer "
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-			// Gunakan utils.SendError agar format JSON seragam
 			utils.SendError(c, http.StatusUnauthorized, "Sesi berakhir, silakan login kembali", nil)
 			c.Abort()
 			return
 		}
 
-		// 3. Potong string untuk mendapatkan token murni
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 
-		// 4. Validasi JWT
 		claims, err := utils.ValidateToken(tokenString, os.Getenv("JWT_SECRET"))
 		if err != nil {
 			utils.SendError(c, http.StatusUnauthorized, "Token tidak valid atau kadaluarsa", err)
@@ -65,8 +59,6 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// 5. Simpan data user ke context Gin
-		// Pastikan claims["user_id"] dan claims["email"] sesuai dengan struct JWT kamu
 		c.Set("user_id", claims["user_id"])
 		c.Set("user_email", claims["email"])
 

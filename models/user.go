@@ -20,7 +20,6 @@ type User struct {
 }
 
 func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
-	// Menghasilkan ID seperti: USR-20260314-aB12
 	u.ID = utils.GenerateCustomID("us", 4)
 	return nil
 }
