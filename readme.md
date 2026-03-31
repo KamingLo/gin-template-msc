@@ -1,4 +1,4 @@
-# 🚀 Go-Gin Modular Clean Architecture
+# Go-Gin Modular Clean Architecture
 
 A robust and scalable production-ready backend template built with **Golang** and the **Gin Gonic** framework. This project implements a modular layered architecture to ensure maintainability and ease of testing.
 
