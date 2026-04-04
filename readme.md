@@ -1,6 +1,6 @@
 # Go-Gin Modular Clean Architecture (v2.0)
 
-A robust, scalable, and secure backend foundation built with **Golang 1.26+** and the **Gin Gonic** framework. This template implements a modular layered architecture, making it ideal for high-performance mobile-first APIs and Progressive Web Apps (PWA).
+A robust, scalable, and secure backend foundation built with **Golang 1.26+** and the **Gin Gonic** framework. This template implements a modular layered architecture, making it ideal for high-performance mobile-first APIs and Progressive Web Apps (PWA) on [pwa-boilerplate](https://github.com/KamingLo/pwa-boilerplate).
 
 New in this version:  **Integrated OTP Service** ,  **Google OAuth2** ,  **Adaptive Rate-Limiting** , and  **Enhanced CORS Security** .
 
