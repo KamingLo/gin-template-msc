@@ -3,30 +3,21 @@ package config
 import (
 	"os"
 
-	"github.com/gorilla/sessions"
-	"github.com/markbates/goth"
-	"github.com/markbates/goth/gothic"
-	"github.com/markbates/goth/providers/google"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 )
 
+var GoogleOAuthConfig *oauth2.Config
+
 func InitOAuth() {
-	key := os.Getenv("JWT_SECRET")
-	maxAge := 86400 * 30
-
-	store := sessions.NewCookieStore([]byte(key))
-	store.MaxAge(maxAge)
-	store.Options.Path = "/"
-	store.Options.HttpOnly = true
-	store.Options.Secure = os.Getenv("GIN_MODE") == "release"
-
-	gothic.Store = store
-
-	goth.UseProviders(
-		google.New(
-			os.Getenv("GOOGLE_CLIENT_ID"),
-			os.Getenv("GOOGLE_CLIENT_SECRET"),
-			os.Getenv("GOOGLE_CALLBACK_URL"),
-			"email", "profile",
-		),
-	)
+	GoogleOAuthConfig = &oauth2.Config{
+		ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
+		ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+		RedirectURL:  os.Getenv("GOOGLE_CALLBACK_URL"),
+		Endpoint:     google.Endpoint,
+		Scopes: []string{
+			"https://www.googleapis.com/auth/userinfo.email",
+			"https://www.googleapis.com/auth/userinfo.profile",
+		},
+	}
 }

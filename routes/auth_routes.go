@@ -21,6 +21,7 @@ func AuthRoutes(r *gin.Engine) {
 		private.Use(AuthMiddleware())
 		{
 			private.GET("/me", controllers.GetMe)
+			private.GET("/logout", controllers.Logout)
 		}
 	}
 }

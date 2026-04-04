@@ -1,72 +1,81 @@
 package controllers
 
 import (
+	"context"
+	"encoding/json"
+	"io"
+	"log"
 	"net/http"
 	"os"
+	"template/config"
 	"template/models"
 	"template/services"
 	"template/utils"
 
 	"github.com/gin-gonic/gin"
-	"github.com/markbates/goth/gothic"
+	"golang.org/x/oauth2"
 )
 
+// GoogleLogin mengarahkan user ke halaman login Google
 func GoogleLogin(c *gin.Context) {
-	platform := c.DefaultQuery("platform", "web")
+	// State sebaiknya di-generate acak dan disimpan di session/cookie untuk keamanan CSRF
+	state := os.Getenv("SESSION_SECRET")
+	url := config.GoogleOAuthConfig.AuthCodeURL(
+		state,
+		oauth2.SetAuthURLParam("prompt", "select_account"),
+	)
 
-	sess, _ := gothic.Store.Get(c.Request, "auth-session")
-	sess.Values["platform"] = platform
-	sess.Save(c.Request, c.Writer)
-
-	q := c.Request.URL.Query()
-	q.Add("provider", "google")
-	c.Request.URL.RawQuery = q.Encode()
-
-	url, err := gothic.GetAuthURL(c.Writer, c.Request)
-	if err != nil {
-		utils.SendError(c, http.StatusInternalServerError, "Failed to initiate google auth", err)
-		return
-	}
-
+	log.Printf("[OAuth Init] Google Auth URL generated")
 	utils.SendSuccess(c, http.StatusOK, "URL Successfully made", gin.H{"url": url})
 }
 
+// GoogleCallback menerima response dari Google
 func GoogleCallback(c *gin.Context) {
-	q := c.Request.URL.Query()
-	q.Add("provider", "google")
-	c.Request.URL.RawQuery = q.Encode()
+	code := c.Query("code")
+	state := c.Query("state")
 
-	user, err := gothic.CompleteUserAuth(c.Writer, c.Request)
+	// Validasi state di sini jika kamu menyimpannya di session
+	if state != os.Getenv("SESSION_SECRET") {
+		utils.SendError(c, http.StatusBadRequest, "Invalid state", nil)
+		return
+	}
+
+	// 1. Tukar Code dengan Token
+	token, err := config.GoogleOAuthConfig.Exchange(context.Background(), code)
 	if err != nil {
-		loginURL := os.Getenv("OAUTH_FRONTEND_URL") + "?error=google_auth_failed"
+		log.Printf("[OAuth Error] Exchange failed: %v", err)
+		c.Redirect(http.StatusTemporaryRedirect, os.Getenv("OAUTH_FRONTEND_URL")+"?error=token_exchange_failed")
+		return
+	}
+
+	// 2. Ambil data user dari Google API menggunakan token tersebut
+	resp, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
+	if err != nil {
+		log.Printf("[OAuth Error] Failed to get user info: %v", err)
+		c.Redirect(http.StatusTemporaryRedirect, os.Getenv("OAUTH_FRONTEND_URL")+"?error=fetch_user_failed")
+		return
+	}
+	defer resp.Body.Close()
+
+	data, _ := io.ReadAll(resp.Body)
+	var googleUser struct {
+		Email string `json:"email"`
+	}
+	if err := json.Unmarshal(data, &googleUser); err != nil {
+		log.Printf("[OAuth Error] Parse JSON failed: %v", err)
+		c.Redirect(http.StatusTemporaryRedirect, os.Getenv("OAUTH_FRONTEND_URL")+"?error=parse_failed")
+		return
+	}
+
+	// 3. Logika Backend (Sama seperti sebelumnya)
+	jwtToken, err := services.HandleGoogleLogin(googleUser.Email)
+	if err != nil {
+		loginURL := os.Getenv("OAUTH_FRONTEND_URL") + "?error=user_not_registered&email=" + googleUser.Email
 		c.Redirect(http.StatusTemporaryRedirect, loginURL)
 		return
 	}
 
-	sess, _ := gothic.Store.Get(c.Request, "auth-session")
-	platform, _ := sess.Values["platform"].(string)
-
-	token, err := services.HandleGoogleLogin(user.Email)
-
-	if err != nil {
-		errorMessage := "user_not_registered"
-		loginURL := os.Getenv("OAUTH_FRONTEND_URL") + "?error=" + errorMessage + "&email=" + user.Email
-
-		if platform == "mobile" {
-			c.Redirect(http.StatusTemporaryRedirect, "myapp://login?error="+errorMessage)
-			return
-		}
-
-		c.Redirect(http.StatusTemporaryRedirect, loginURL)
-		return
-	}
-
-	if platform == "mobile" {
-		c.Redirect(http.StatusTemporaryRedirect, "myapp://auth?token="+token)
-		return
-	}
-
-	c.Redirect(http.StatusTemporaryRedirect, os.Getenv("SUCCESS_FRONTEND_URL")+"?token="+token)
+	c.Redirect(http.StatusTemporaryRedirect, os.Getenv("SUCCESS_FRONTEND_URL")+"?token="+jwtToken)
 }
 
 func RequestOTP(c *gin.Context) {
@@ -131,4 +140,11 @@ func GetMe(c *gin.Context) {
 		"id":    id,
 		"email": email,
 	})
+}
+
+// Di controller/handler auth kamu
+func Logout(c *gin.Context) {
+	// Tanpa Goth, kita tidak perlu membersihkan session di sisi server
+	// jika kita menggunakan stateless JWT.
+	utils.SendSuccess(c, http.StatusOK, "Logged out successfully", nil)
 }

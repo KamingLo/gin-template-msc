@@ -27,7 +27,7 @@ func main() {
 		port = "9000"
 	}
 
-	err := r.Run(":" + port)
+	err := r.Run("localhost:" + port)
 	if err != nil {
 		log.Fatalf("Gagal menjalankan server: %v", err)
 	}
