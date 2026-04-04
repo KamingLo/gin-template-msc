@@ -12,26 +12,26 @@ import (
 func GetBooks(c *gin.Context) {
 	books, err := services.GetAllBooks()
 	if err != nil {
-		utils.SendError(c, http.StatusInternalServerError, "Gagal mengambil data buku", err)
+		utils.SendError(c, http.StatusInternalServerError, "Failed to get books", err)
 		return
 	}
 
-	utils.SendSuccess(c, http.StatusOK, "Berhasil mengambil semua data buku", books)
+	utils.SendSuccess(c, http.StatusOK, "Books data get successfully", books)
 }
 
 func CreateBook(c *gin.Context) {
 	var input models.Book
 	if err := c.ShouldBindJSON(&input); err != nil {
-		utils.SendError(c, http.StatusBadRequest, "Input tidak valid", err)
+		utils.SendError(c, http.StatusBadRequest, "Input is not valid", err)
 		return
 	}
 
 	if err := services.CreateBook(&input); err != nil {
-		utils.SendError(c, http.StatusConflict, "Gagal menyimpan data", err)
+		utils.SendError(c, http.StatusConflict, "Failed to save data", err)
 		return
 	}
 
-	utils.SendSuccess(c, http.StatusCreated, "Buku berhasil disimpan", input)
+	utils.SendSuccess(c, http.StatusCreated, "Books is saved successfully", input)
 }
 
 func UpdateBook(c *gin.Context) {
@@ -39,25 +39,25 @@ func UpdateBook(c *gin.Context) {
 	var input map[string]interface{}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		utils.SendError(c, http.StatusBadRequest, "Format data salah", err)
+		utils.SendError(c, http.StatusBadRequest, "Data format is incorrect", err)
 		return
 	}
 
 	book, err := services.UpdateBook(id, input)
 	if err != nil {
-		utils.SendError(c, http.StatusNotFound, "Data tidak ditemukan atau gagal update", err)
+		utils.SendError(c, http.StatusNotFound, "Data is not found, and failed to update", err)
 		return
 	}
 
-	utils.SendSuccess(c, http.StatusOK, "Update berhasil", book)
+	utils.SendSuccess(c, http.StatusOK, "Updated Successfully", book)
 }
 
 func DeleteBook(c *gin.Context) {
 	id := c.Param("id")
 	if err := services.DeleteBook(id); err != nil {
-		utils.SendError(c, http.StatusNotFound, "Data tidak ditemukan atau sudah dihapus", err)
+		utils.SendError(c, http.StatusNotFound, "Data is not found, or already deleted", err)
 		return
 	}
 
-	utils.SendSuccess(c, http.StatusOK, "Berhasil dihapus", nil)
+	utils.SendSuccess(c, http.StatusOK, "Succesfully deleted", nil)
 }

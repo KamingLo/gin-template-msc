@@ -24,11 +24,11 @@ func GoogleLogin(c *gin.Context) {
 
 	url, err := gothic.GetAuthURL(c.Writer, c.Request)
 	if err != nil {
-		utils.SendError(c, http.StatusInternalServerError, "Gagal inisiasi Google Auth", err)
+		utils.SendError(c, http.StatusInternalServerError, "Failed to initiate google auth", err)
 		return
 	}
 
-	utils.SendSuccess(c, http.StatusOK, "URL Auth berhasil dibuat", gin.H{"url": url})
+	utils.SendSuccess(c, http.StatusOK, "URL Successfully made", gin.H{"url": url})
 }
 
 func GoogleCallback(c *gin.Context) {
@@ -74,16 +74,16 @@ func RequestOTP(c *gin.Context) {
 		Email string `json:"email" binding:"required,email"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
-		utils.SendError(c, http.StatusBadRequest, "Format email salah", err)
+		utils.SendError(c, http.StatusBadRequest, "Email format is wrong", err)
 		return
 	}
 
 	if err := services.RequestOTP(input.Email); err != nil {
-		utils.SendError(c, http.StatusBadRequest, "Gagal mengirim OTP", err)
+		utils.SendError(c, http.StatusBadRequest, "Failed to send otp", err)
 		return
 	}
 
-	utils.SendSuccess(c, http.StatusOK, "Kode OTP telah dikirim ke email kamu", nil)
+	utils.SendSuccess(c, http.StatusOK, "OTP Code is sent to your email", nil)
 }
 
 func Register(c *gin.Context) {
@@ -93,45 +93,41 @@ func Register(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		utils.SendError(c, http.StatusBadRequest, "Data tidak lengkap", err)
+		utils.SendError(c, http.StatusBadRequest, "Data is not complete", err)
 		return
 	}
 
 	if err := services.RegisterWithOTP(&input.User, input.OTPCode); err != nil {
-		utils.SendError(c, http.StatusBadRequest, "Gagal registrasi", err)
+		utils.SendError(c, http.StatusBadRequest, "Registration Failed", err)
 		return
 	}
 
-	utils.SendSuccess(c, http.StatusCreated, "Registrasi berhasil, silakan login", nil)
+	utils.SendSuccess(c, http.StatusCreated, "Registration Success, Please Login", nil)
 }
 
 func Login(c *gin.Context) {
 	var input models.UserLogin
 	if err := c.ShouldBindJSON(&input); err != nil {
-		utils.SendError(c, http.StatusBadRequest, "Input tidak valid", err)
+		utils.SendError(c, http.StatusBadRequest, "Input is not valid", err)
 		return
 	}
 
 	token, err := services.LoginUser(input)
 	if err != nil {
-		utils.SendError(c, http.StatusUnauthorized, "Email atau password salah", err)
+		utils.SendError(c, http.StatusUnauthorized, "Email or password is incorrect", err)
 		return
 	}
 
-	utils.SendSuccess(c, http.StatusOK, "Login berhasil", gin.H{
+	utils.SendSuccess(c, http.StatusOK, "Login Successfully", gin.H{
 		"token": token,
 	})
-}
-
-func Logout(c *gin.Context) {
-	utils.SendSuccess(c, http.StatusOK, "Berhasil keluar", nil)
 }
 
 func GetMe(c *gin.Context) {
 	id, _ := c.Get("user_id")
 	email, _ := c.Get("user_email")
 
-	utils.SendSuccess(c, http.StatusOK, "Data profil berhasil diambil", gin.H{
+	utils.SendSuccess(c, http.StatusOK, "Data profilmu berhasil diambil", gin.H{
 		"id":    id,
 		"email": email,
 	})

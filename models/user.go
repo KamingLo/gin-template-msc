@@ -19,8 +19,12 @@ type User struct {
 	Password string `json:"password" binding:"required"`
 }
 
+func init() {
+	RegisterModel(&User{})
+}
+
 func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
-	u.ID = utils.GenerateCustomID("us", 4)
+	u.ID = utils.GenerateCustomID("us", 6)
 	return nil
 }
 

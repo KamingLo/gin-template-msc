@@ -6,7 +6,7 @@ import (
 
 // Response standar untuk semua API
 type APIResponse struct {
-	Status  bool        `json:"status"`
+	Success bool        `json:"success"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
 	Error   interface{} `json:"error,omitempty"`
@@ -23,7 +23,7 @@ func SendError(c *gin.Context, statusCode int, message string, err interface{}) 
 	}
 
 	c.JSON(statusCode, APIResponse{
-		Status:  false,
+		Success: false,
 		Message: message,
 		Error:   detail,
 	})
@@ -31,7 +31,7 @@ func SendError(c *gin.Context, statusCode int, message string, err interface{}) 
 
 func SendSuccess(c *gin.Context, statusCode int, message string, data interface{}) {
 	c.JSON(statusCode, APIResponse{
-		Status:  true,
+		Success: true,
 		Message: message,
 		Data:    data,
 	})
