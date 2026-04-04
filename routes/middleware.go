@@ -40,32 +40,32 @@ func init() {
 	}()
 }
 
+// AuthMiddleware ensures the request has a valid JWT.
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-			utils.SendError(c, http.StatusUnauthorized, "Sesi berakhir, silakan login kembali", nil)
+			utils.SendError(c, http.StatusUnauthorized, "Session expired, please log in again", nil)
 			c.Abort()
 			return
 		}
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-
 		claims, err := utils.ValidateToken(tokenString, os.Getenv("JWT_SECRET"))
 		if err != nil {
-			utils.SendError(c, http.StatusUnauthorized, "Token tidak valid atau kadaluarsa", err)
+			utils.SendError(c, http.StatusUnauthorized, "Invalid or expired token", err)
 			c.Abort()
 			return
 		}
 
 		c.Set("user_id", claims["user_id"])
 		c.Set("user_email", claims["email"])
-
 		c.Next()
 	}
 }
 
+// RateLimitMiddleware prevents brute-force by tracking IP + Path.
 func RateLimitMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
@@ -80,33 +80,30 @@ func RateLimitMiddleware() gin.HandlerFunc {
 				limiter: rate.NewLimiter(rate.Every(30*time.Second/5), 5),
 			}
 			clients[identifier] = v
-			fmt.Printf("[RateLimit] New Registration: %s\n", identifier)
 		}
 		v.lastSeen = now
 
 		if now.Before(v.isLockedUntil) || !v.limiter.Allow() {
 			if now.After(v.isLockedUntil) {
 				v.isLockedUntil = now.Add(30 * time.Second)
-				fmt.Printf("[RateLimit] LIMIT TRIGGERED: %s | Locked for 30s\n", identifier)
 			}
 
 			remaining := time.Until(v.isLockedUntil).Seconds()
 			mu.Unlock()
 
-			fmt.Printf("[RateLimit] REJECTED: %s | Retry in %.0fs\n", identifier, remaining)
-
-			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
-				"message": fmt.Sprintf("Batas 5 kali percobaan per 30 detik tercapai. Coba lagi dalam %.0f detik", remaining),
-			})
+			// Using utils.SendError for consistency
+			msg := fmt.Sprintf("Rate limit exceeded (5 attempts per 30s). Please try again in %.0f seconds", remaining)
+			utils.SendError(c, http.StatusTooManyRequests, msg, nil)
+			c.Abort()
 			return
 		}
 
 		mu.Unlock()
-
 		c.Next()
 	}
 }
 
+// CORSMiddleware manages cross-origin access based on environment settings.
 func CORSMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		allowedOrigins := os.Getenv("ALLOWED_ORIGINS")
@@ -126,10 +123,7 @@ func CORSMiddleware() gin.HandlerFunc {
 		}
 
 		if !isAllowed {
-			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
-			c.JSON(http.StatusForbidden, gin.H{
-				"message": "Akses ditolak, Origin tidak diizinkan oleh kebijakan CORS",
-			})
+			utils.SendError(c, http.StatusForbidden, "Access denied: Origin not allowed by CORS policy", nil)
 			c.Abort()
 			return
 		}
@@ -143,7 +137,7 @@ func CORSMiddleware() gin.HandlerFunc {
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PATCH, DELETE")
 
 		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
+			c.AbortWithStatus(http.StatusNoContent)
 			return
 		}
 

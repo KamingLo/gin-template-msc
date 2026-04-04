@@ -19,6 +19,23 @@ func GetBooks(c *gin.Context) {
 	utils.SendSuccess(c, http.StatusOK, "Books data get successfully", books)
 }
 
+func GetBookByID(c *gin.Context) {
+	id := c.Param("id")
+
+	book, err := services.GetBookByID(id)
+	if err != nil {
+		// Check the string directly to avoid importing GORM here
+		if err.Error() == "record not found" {
+			utils.SendError(c, http.StatusNotFound, "Book not found", nil)
+			return
+		}
+		utils.SendError(c, http.StatusInternalServerError, "Failed to retrieve book", err)
+		return
+	}
+
+	utils.SendSuccess(c, http.StatusOK, "Book retrieved successfully", book)
+}
+
 func CreateBook(c *gin.Context) {
 	var input models.Book
 	if err := c.ShouldBindJSON(&input); err != nil {

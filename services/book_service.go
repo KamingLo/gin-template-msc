@@ -13,6 +13,12 @@ func GetAllBooks() ([]models.Book, error) {
 	return books, err
 }
 
+func GetBookByID(id string) (models.Book, error) {
+	var book models.Book
+	err := config.DB.Where("id = ?", id).First(&book).Error
+	return book, err
+}
+
 func CreateBook(book *models.Book) error {
 	return config.DB.Create(book).Error
 }

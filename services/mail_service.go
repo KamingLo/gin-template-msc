@@ -16,11 +16,12 @@ type DataOTP struct {
 	OTP string
 }
 
+// SendEmail handles the low-level SMTP connection and delivery
 func SendEmail(toEmail, subject, body string) error {
 	host := os.Getenv("MAIL_HOST")
 	port, _ := strconv.Atoi(os.Getenv("MAIL_PORT"))
 	username := os.Getenv("MAIL_USERNAME")
-	password := os.Getenv("MAIL_PASSWORD") // App Password Gmail
+	password := os.Getenv("MAIL_PASSWORD")
 	fromEmail := os.Getenv("MAIL_FROM_ADDRESS")
 	fromName := os.Getenv("MAIL_FROM_NAME")
 
@@ -32,6 +33,7 @@ func SendEmail(toEmail, subject, body string) error {
 
 	d := gomail.NewDialer(host, port, username, password)
 
+	// Bypass TLS verification for common mail providers if needed
 	d.TLSConfig = &tls.Config{InsecureSkipVerify: true}
 
 	if err := d.DialAndSend(m); err != nil {
@@ -40,31 +42,35 @@ func SendEmail(toEmail, subject, body string) error {
 	return nil
 }
 
+// SendRegistrationOTP prepares the template and triggers the background sender
 func SendRegistrationOTP(toEmail, otp string) error {
-	subject := "Verifikasi Akun - Kode OTP"
+	subject := "Account Verification - OTP Code"
 
 	tmplPath := filepath.Join("templates", "otp.html")
 	tmpl, err := template.ParseFiles(tmplPath)
 	if err != nil {
-		return fmt.Errorf("Gagal parse template: %w", err)
+		return fmt.Errorf("failed to parse template: %w", err)
 	}
 
 	var body bytes.Buffer
 	data := DataOTP{OTP: otp}
 	if err := tmpl.Execute(&body, data); err != nil {
-		return fmt.Errorf("Gagal execute template: %w", err)
+		return fmt.Errorf("failed to execute template: %w", err)
 	}
 
+	// Send email asynchronously to keep the API fast
 	go func(targetEmail, mailSubject, mailBody string) {
 		defer func() {
 			if r := recover(); r != nil {
-				fmt.Printf("[Panic Recovery] Error saat kirim email ke %s: %v\n", targetEmail, r)
+				fmt.Printf("[Panic Recovery] Error sending email to %s: %v\n", targetEmail, r)
 			}
 		}()
 
 		err := SendEmail(targetEmail, mailSubject, mailBody)
 		if err != nil {
-			fmt.Printf("[Error Background] Gagal kirim email ke %s: %v\n", targetEmail, err)
+			fmt.Printf("[Background Error] Failed to send email to %s: %v\n", targetEmail, err)
+		} else {
+			fmt.Printf("[Success] OTP Email sent successfully to %s\n", targetEmail)
 		}
 	}(toEmail, subject, body.String())
 
