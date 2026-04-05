@@ -148,3 +148,41 @@ func Logout(c *gin.Context) {
 	// jika kita menggunakan stateless JWT.
 	utils.SendSuccess(c, http.StatusOK, "Logged out successfully", nil)
 }
+
+func ForgotPassword(c *gin.Context) {
+	var input struct {
+		Email string `json:"email" binding:"required,email"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		utils.SendError(c, http.StatusBadRequest, "Format email salah", err)
+		return
+	}
+
+	if err := services.ForgotPassword(input.Email); err != nil {
+		utils.SendError(c, http.StatusTooManyRequests, err.Error(), nil)
+		return
+	}
+
+	utils.SendSuccess(c, http.StatusOK, "Tautan reset telah dikirim ke email", nil)
+}
+
+func ResetPassword(c *gin.Context) {
+	var input struct {
+		Email       string `json:"email" binding:"required,email"`
+		Token       string `json:"token" binding:"required"` // Tambahkan Token di sini
+		NewPassword string `json:"new_password" binding:"required,min=8"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		utils.SendError(c, http.StatusBadRequest, "Data tidak lengkap", err)
+		return
+	}
+
+	if err := services.ResetPassword(input.Email, input.Token, input.NewPassword); err != nil {
+		utils.SendError(c, http.StatusUnauthorized, err.Error(), nil)
+		return
+	}
+
+	utils.SendSuccess(c, http.StatusOK, "Password berhasil diperbarui", nil)
+}

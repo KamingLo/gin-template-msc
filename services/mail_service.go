@@ -16,6 +16,10 @@ type DataOTP struct {
 	OTP string
 }
 
+type DataResetPassword struct {
+	ResetURL string
+}
+
 // SendEmail handles the low-level SMTP connection and delivery
 func SendEmail(toEmail, subject, body string) error {
 	host := os.Getenv("MAIL_HOST")
@@ -71,6 +75,39 @@ func SendRegistrationOTP(toEmail, otp string) error {
 			fmt.Printf("[Background Error] Failed to send email to %s: %v\n", targetEmail, err)
 		} else {
 			fmt.Printf("[Success] OTP Email sent successfully to %s\n", targetEmail)
+		}
+	}(toEmail, subject, body.String())
+
+	return nil
+}
+
+func SendForgotPasswordLink(toEmail, resetURL string) error {
+	subject := "Reset Kata Sandi Anda"
+
+	// Arahkan ke file template baru khusus reset password
+	tmplPath := filepath.Join("templates", "forgot_password.html")
+	tmpl, err := template.ParseFiles(tmplPath)
+	if err != nil {
+		return fmt.Errorf("failed to parse template: %w", err)
+	}
+
+	var body bytes.Buffer
+	data := DataResetPassword{ResetURL: resetURL}
+	if err := tmpl.Execute(&body, data); err != nil {
+		return fmt.Errorf("failed to execute template: %w", err)
+	}
+
+	// Kirim secara asinkron agar API tetap responsif (Non-blocking)
+	go func(targetEmail, mailSubject, mailBody string) {
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Printf("[Panic Recovery] Error sending email to %s: %v\n", targetEmail, r)
+			}
+		}()
+
+		err := SendEmail(targetEmail, mailSubject, mailBody)
+		if err != nil {
+			fmt.Printf("[Background Error] Failed to send email to %s: %v\n", targetEmail, err)
 		}
 	}(toEmail, subject, body.String())
 
