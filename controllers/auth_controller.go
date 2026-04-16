@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -88,6 +89,7 @@ func RequestOTP(c *gin.Context) {
 	}
 
 	if err := services.RequestOTP(input.Email); err != nil {
+		fmt.Println(err)
 		utils.SendError(c, http.StatusBadRequest, "Failed to send otp", err)
 		return
 	}

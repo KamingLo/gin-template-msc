@@ -27,12 +27,13 @@ func ConnectDatabase() {
 
 	database, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		panic("Failed to connect to database: " + err.Error())
+		fmt.Println("Failed to connect to database: " + err.Error())
 	}
 
 	err = database.AutoMigrate(models.ModelsRegistry...)
+	fmt.Println(models.ModelsRegistry...)
 	if err != nil {
-		panic("Database Failed to migrate" + err.Error())
+		fmt.Print("Database Failed to migrate" + err.Error())
 	}
 
 	DB = database

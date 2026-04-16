@@ -18,7 +18,7 @@ type OTP struct {
 }
 
 func init() {
-	RegisterModel(&User{})
+	RegisterModel(&OTP{})
 }
 
 func (o *OTP) BeforeCreate(tx *gorm.DB) (err error) {

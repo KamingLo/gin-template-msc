@@ -24,10 +24,10 @@ func main() {
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "9000"
+		port = "8000"
 	}
 
-	err := r.Run("localhost:" + port)
+	err := r.Run("0.0.0.0:" + port)
 	if err != nil {
 		log.Fatalf("Gagal menjalankan server: %v", err)
 	}

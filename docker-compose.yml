@@ -4,33 +4,31 @@ services:
     container_name: postgres-db
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password_kamu
+      POSTGRES_PASSWORD: kaming123
       POSTGRES_DB: postgres
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   app:
     build: .
     restart: always
     container_name: kaming-api-service
     ports:
-      - "4000:4000"
-    environment:
-      - GIN_MODE=debug
-      - PORT=4000
-      - DB_HOST=db
-      - DB_USER=postgres
-      - DB_PASSWORD=password_kamu
-      - DB_NAME=postgres
-      - DB_PORT=5432
-      - DB_SSLMODE=disable
-      - JWT_SECRET=YOUR-JWT-SECRET
-      - JWT_EXPIRES=enable
-      - JWT_EXPIRES_IN=24
+      - "8000:8000"
+    env_file:
+      - .env
     depends_on:
       - db
-
+      
 volumes:
   postgres_data:

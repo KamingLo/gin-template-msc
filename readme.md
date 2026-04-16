@@ -1,167 +1,125 @@
-# Go-Gin Modular Clean Architecture (v2.0)
+# Go-Gin Modular Clean Architecture
 
-A robust, scalable, and secure backend foundation built with **Golang 1.26+** and the **Gin Gonic** framework. This template implements a modular layered architecture, making it ideal for high-performance mobile-first APIs and Progressive Web Apps (PWA) on [pwa-boilerplate](https://github.com/KamingLo/pwa-boilerplate).
+A robust, scalable, and secure backend foundation built with **Golang 1.26+** and the **Gin Gonic** framework. This template implements a modular layered architecture, making it ideal for high-performance mobile-first APIs and modern web applications.
 
-New in this version:  **Integrated OTP Service** ,  **Google OAuth2** ,  **Adaptive Rate-Limiting** , and  **Enhanced CORS Security** .
+Featuring integrated **Email OTP Service**, **Google OAuth2**, **Password Recovery**, **Adaptive Rate-Limiting**, and **Enhanced CORS Security**.
 
-## 🏗️ Architecture Overview
+## 🚀 Features
 
-The project follows a strict separation of concerns to ensure the codebase remains maintainable as it grows:
+- **Modular Architecture**: Clean separation of Models, Controllers, Services, and Routes.
+- **Robust Authentication**:
+  - Email & Password Login.
+  - OTP-based Registration (with dynamic cooldowns to prevent spam).
+  - Google OAuth2 Integration.
+  - Forgot & Reset Password flows.
+- **Security First**:
+  - JWT (JSON Web Tokens) for session management.
+  - Custom CORS middleware.
+  - Adaptive IP and Path-based Rate Limiting to prevent brute-force attacks.
+- **Database & ORM**: PostgreSQL integration using GORM.
+- **Container Ready**: Includes `docker-compose.yml` for instantly spinning up PostgreSQL
+- **Developer Experience**: Pre-configured for live reloading using Air.
 
-* **Models** : GORM-based data structures and database schemas.
-* **Services** : The "Brain" layer. Handles business logic, OTP cooldown calculations, and third-party integrations (Email/OAuth).
-* **Controllers** : HTTP entry points. Responsible for input validation and returning standardized JSON.
-* **Routes & Middleware** : Modular routing with built-in security (JWT, Rate Limiting, CORS).
-* **Utils/Config** : Shared helpers for security, environment loading, and database connectivity.
+## 🏗️ Project Structure
 
----
-
-## 📂 Project Structure
-
-**Plaintext**
-
+```text
+.
+├── cmd/
+│   └── api/
+│       └── main.go       # Application Entry Point
+├── config/               # Database & Third-Party Configs (OAuth)
+├── controllers/          # HTTP Request Handlers & Input Validation
+├── models/               # GORM Database Schemas
+├── routes/               # API Routes & Custom Middleware
+├── services/             # Core Business Logic (Auth, OTP, Mail, etc.)
+├── templates/            # HTML Email Templates
+├── utils/                # Shared Helpers (JWT, Passwords, Standardized Responses)
+├── docker-compose.yml    # Infrastructure as Code (PostgreSQL)
+└── .env.example          # Environment Variable Definitions
 ```
-template/
-├── cmd/api/main.go        # Entry point
-├── config/                # DB, Google OAuth
-├── controllers/          # HTTP Handlers (using utils for responses)
-├── models/               # Database Schemas
-├── routes/               # Modular routes & Custom Middleware
-├── services/             # Business Logic (OTP, Mail, Auth, Books)
-├── templates/            # HTML Email Templates (OTP)
-├── utils/                # Standardized Response & Security Helpers
-└── .env                  # Environment Variables
-```
-
----
 
 ## 🛠️ Getting Started
 
 ### 1. Prerequisites
 
-* **Go 1.26+** installed.
-* **PostgreSQL** instance.
-* **Air** for live reloading: `go install github.com/air-verse/air@latest`
+- **Go 1.26+**
+- **Docker & Docker Compose** (for running the database locally)
+- **Air** (for live reloading): `go install github.com/air-verse/air@latest`
 
-### 2. Project Initialization (CRITICAL ⚠️)
+### 2. Project Initialization
 
-To ensure internal imports work correctly, you must perform these three steps:
+To use this template for your own project, ensure you update the Go module name:
 
-1. **Rename the Go Module** :
-   **Bash**
-
-```
+1. **Rename the Go Module**:
+   ```bash
    go mod edit -module your-project-name
-```
+   ```
 
-2. **Global Refactor (Search & Replace)** :
-   Since all internal imports use the `template/` prefix, you must replace them.
+2. **Global Import Path Update**:
+   Update all internal import paths from `"template/...` to `"your-project-name/...` across the project using your code editor's search and replace function.
 
-* **In VS Code** : Press `Ctrl + Shift + H`.
-* **Search** : `"template/`
-* **Replace** : `"your-project-name/`
-* *Note: Including the opening quote ensures you only modify import paths, not your logic.*
-
-3. **Tidy Dependencies** :
-   **Bash**
-
-```
+3. **Tidy Dependencies**:
+   ```bash
    go mod tidy
+   ```
+
+### 3. Environment Configuration
+
+Copy the `.env.example` file to `.env`:
+```bash
+cp .env.example .env
+```
+Update the `.env` file with your specific database credentials, JWT secrets, Google OAuth keys, and SMTP configuration.
+
+### 4. Infrastructure Setup
+
+Start the required services (PostgreSQL ) using Docker Compose:
+```bash
+docker-compose up -d
 ```
 
----
-
-### 3. Configuration (.env)
-
-Create a `.env` file in the root directory. This template is pre-configured for **Gmail SMTP** and  **Google OAuth** :
-
-**Cuplikan kode**
-
-```
-# Server Config
-GIN_MODE=debug
-MACHINE_ID=dc1
-PORT=8000
-
-# Security & CORS
-COOKIE_DOMAIN=localhost
-ALLOWED_ORIGINS=http://127.0.0.1:3000,http://localhost:3000
-
-# Database (PostgreSQL)
-DB_HOST=localhost
-DB_USER=postgres
-DB_PASSWORD=your_password
-DB_NAME=your_db_name
-DB_PORT=5432
-DB_SSLMODE=require
-
-# JWT Configuration
-JWT_SECRET=your-32-or-64-character-secret
-JWT_EXPIRES=enable
-JWT_EXPIRES_IN=24
-
-# Google OAuth2
-GOOGLE_CLIENT_ID=your_id.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=your_secret
-GOOGLE_CALLBACK_URL=http://localhost:8000/auth/google/callback
-
-# Frontend Redirects
-OAUTH_FRONTEND_URL=http://127.0.0.1:3000/auth/login
-SUCCESS_FRONTEND_URL=http://127.0.0.1:3000/auth/callback
-SESSION_SECRET=your-random-session-secret
-
-# SMTP / Mail Settings
-MAIL_MAILER=smtp
-MAIL_HOST=smtp.gmail.com
-MAIL_PORT=465
-MAIL_USERNAME=your_email@gmail.com
-MAIL_PASSWORD=your_google_app_password
-MAIL_ENCRYPTION=ssl
-MAIL_FROM_ADDRESS=noreply@yourdomain.com
-MAIL_FROM_NAME="App Verifier"
-```
-
----
-
-## 🔐 API Endpoints
-
-| **Method** | **Endpoint** | **Description**      | **Auth Required** |
-| ---------------- | ------------------ | -------------------------- | ----------------------- |
-| **POST**   | `/auth/otp`      | Request Registration OTP   | No                      |
-| **POST**   | `/auth/register` | Register using Email + OTP | No                      |
-| **POST**   | `/auth/login`    | Email & Password Login     | No                      |
-| **GET**    | `/auth/google`   | Trigger Google OAuth       | No                      |
-| **GET**    | `/books`         | List all books             | No                      |
-| **GET**    | `/books/:id`     | Get specific book details  | No                      |
-| **POST**   | `/books`         | Add a new book             | **Yes (JWT)**     |
-| **PATCH**  | `/books/:id`     | Partial update book        | **Yes (JWT)**     |
-| **DELETE** | `/books/:id`     | Remove a book              | **Yes (JWT)**     |
-
----
-
-## 🛡️ Security & Features
-
-* **Adaptive Rate Limiting** : Protects your API from brute-force. Hits trigger a 30-second lockout with a dynamic "retry-in" message.
-* **OTP Cooldown Logic** : Built-in anti-spam for SMTP. Wait times increase (30s → 1m → 5m → 1h) based on request frequency.
-* **Clean Error Handling** : Uses `utils.SendError` and `utils.SendSuccess` to ensure mobile clients always receive a consistent JSON structure.
-* **Background Workers** : Email sending is handled in a separate goroutine with panic recovery, ensuring your API remains lightning-fast.
-* **Mobile-First Design** : The OTP email template is fully responsive and uses system fonts to look native on iOS and Android.
-
-## 🚀 Run the App
+### 5. Run the Application
 
 **Development (with live reload):**
-
-**Bash**
-
-```
+```bash
 air
 ```
 
-**Production (Binary build):**
-
-**Bash**
-
-```
+**Production (Build and Run):**
+```bash
 go build -o main cmd/api/main.go
 ./main
 ```
+
+## 🔐 API Endpoints
+
+### Authentication (`/auth`)
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|---|
+| **POST** | `/auth/otp` | Request Registration OTP | No |
+| **POST** | `/auth/register` | Register new user using Email + OTP | No |
+| **POST** | `/auth/login` | Authenticate using Email & Password | No |
+| **GET** | `/auth/google` | Initiate Google OAuth2 flow | No |
+| **GET** | `/auth/google/callback` | Google OAuth2 callback handler | No |
+| **POST** | `/auth/forgot-password`| Request password reset link | No |
+| **POST** | `/auth/reset-password` | Reset password using token | No |
+| **GET** | `/auth/me` | Get current authenticated user details| **Yes (JWT)** |
+| **GET** | `/auth/logout` | Invalidate current session | **Yes (JWT)** |
+
+### Books (`/books`) - Example CRUD
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|---|
+| **GET** | `/books` | List all available books | No |
+| **POST** | `/books/` | Create a new book entry | **Yes (JWT)** |
+| **PATCH**| `/books/:id` | Update specific book details | **Yes (JWT)** |
+| **DELETE**| `/books/:id` | Remove a book entry | **Yes (JWT)** |
+
+## 🛡️ Core Middleware
+
+- **`AuthMiddleware()`**: Validates incoming requests by verifying the attached JWT `Bearer` token.
+- **`RateLimitMiddleware()`**: Protects endpoints by tracking IP and Path combinations, enforcing limits like 5 requests per 30 seconds.
+- **`CORSMiddleware()`**: Enforces cross-origin policies dictated by the `ALLOWED_ORIGINS` environment variable.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
